@@ -28,7 +28,7 @@ export const createSubmission = async (
     return res.status(200).json(response.data);
 
     // return res.status(200).json({ message: "Submission created" });
-  } catch (error) {
+  } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
 };
