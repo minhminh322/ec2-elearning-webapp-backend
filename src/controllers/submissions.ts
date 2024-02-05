@@ -11,13 +11,14 @@ export const createSubmission = async (
     if (!problemId || !sourceCode || !languageId) {
       return res.status(400).json({ message: "Invalid input" });
     }
-
+   // Encode source code to base64
+   const encodedSourceCode = Buffer.from(sourceCode).toString("base64");
     // Create submission
     const response = await axios.post(
       // TODO: Replace with the localhost URL when deployed
-      "http://54.185.233.196:2358/submissions?base64_encoded=false&wait=true",
+      "http://localhost:2358/submissions?base64_encoded=true&wait=true",
       {
-        source_code: sourceCode,
+        source_code: encodedSourceCode,
         language_id: languageId,
       }
     );
