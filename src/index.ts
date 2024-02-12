@@ -1,11 +1,12 @@
 import express from "express";
 import http from "http";
-const dotenv = require("dotenv");
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import compression from "compression";
 import cors from "cors";
 import router from "./routes";
+
+const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
