@@ -1,9 +1,9 @@
 import express from "express";
 import axios from "axios";
+import s3 from "../config/s3";
 import db from "../database/db";
 import { RowDataPacket } from "mysql2";
 import { storeSubmission } from "../services/submissions";
-import { getAllFiles, readFileAsync } from "../utils";
 
 interface Task {
   sourceCode: string;
@@ -36,22 +36,37 @@ const findPracticeProblemInDB: (
   });
 };
 
-const prepareSubmission = async (directoryPath: string, sourceCode: string) => {
-  const filesPath = getAllFiles(directoryPath);
+const getObjectFromS3 = async (bucket: string, key: string) => {
+  const data = await s3.getObject({ Bucket: bucket, Key: key }).promise();
+  return data.Body.toString();
+};
 
-  const promises = filesPath.map(async (file: any) => {
-    const data = (await readFileAsync(file)) as string;
+const prepareSubmission = async (basePath: string, sourceCode: string) => {
+  const params = {
+    Bucket: process.env.TRAICODE_PRACTICE_PROBLEM_S3_BUCKET,
+    Prefix: basePath,
+  };
 
-    const fileName = file.substring(file.lastIndexOf("/") + 1);
+  const listObject = await s3.listObjectsV2(params).promise();
+  // Filter out directories
+  const fileKeys = listObject.Contents.map((object: any) => object.Key).filter(
+    (key: string) => !key.endsWith("/")
+  );
 
+  const promises = fileKeys.map(async (fileKey: any) => {
+    const fileContent = await getObjectFromS3(
+      process.env.TRAICODE_PRACTICE_PROBLEM_S3_BUCKET as string,
+      fileKey
+    );
+    const fileName = fileKey.substring(fileKey.lastIndexOf("/") + 1);
     if (fileName === "data.json") {
-      return { testCases: JSON.parse(data) };
+      return { testCases: JSON.parse(fileContent) };
     } else if (fileName === "template.py") {
       const [_, toBeSubmitted] = sourceCode.split(
         "#------------------------***YOUR IMPLEMENTATION***------------------------#"
       );
 
-      const userCode: string = data.replace("#{{CODE}}", toBeSubmitted);
+      const userCode: string = fileContent.replace("#{{CODE}}", toBeSubmitted);
       return { sourceCode: userCode };
     } else {
       return;
@@ -64,11 +79,10 @@ const prepareSubmission = async (directoryPath: string, sourceCode: string) => {
       testCases: [],
     };
     obj.forEach((item) => {
-      if (!item) return;
-      const { sourceCode, testCases } = item;
-      if (sourceCode !== undefined) {
+      if (item["sourceCode"]) {
         data.sourceCode = item["sourceCode"];
-      } else if (testCases !== undefined) {
+      }
+      if (item["testCases"]) {
         data.testCases = item["testCases"];
       }
     });
@@ -135,7 +149,6 @@ export const createSubmissions = async (
     const query = await findPracticeProblemInDB(problemId as string);
     const basePath = query.map((row: RowDataPacket) => {
       return [
-        "traicode-coursework-bucket",
         row.productName,
         row.courseName,
         row.lessonName,
@@ -144,16 +157,12 @@ export const createSubmissions = async (
       ].join("/");
     })[0];
 
-    const directoryPath =
-      process.env.BASE_URL_EC2_PATH ||
-      process.env.BASE_URL_LOCAL_PATH + basePath;
-
-    const task = await prepareSubmission(directoryPath, sourceCode);
+    const task = await prepareSubmission(basePath, sourceCode);
 
     const token = await executeTasks(task);
     // console.log("Token:", token);
     const submisson = await checkSubmissionStatus(token);
-    console.log("Submission:", submisson);
+    // console.log("Submission:", submisson);
 
     const statusIndicator = submisson["stdout"].split("\n")[0];
     let status;

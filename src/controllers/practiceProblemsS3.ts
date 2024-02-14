@@ -1,26 +1,28 @@
 import express from "express";
+import s3 from "../config/s3";
 import db from "../database/db";
 import { RowDataPacket } from "mysql2";
-import { detectLanguage, getAllFiles, readFileAsync } from "../utils";
+import { detectLanguage } from "../utils";
 
 interface PracticeProblem {
-  content: string;
-  sourceCode: {
+  content?: string;
+  sourceCode?: {
     fileName: string;
     language: string;
-    executeFile: boolean;
+    excuteFile: string;
     code: string;
   }[];
-  solution: {
+  solution?: {
     fileName: string;
     language: string;
     code: string;
   }[];
-  testCases: {
-    testName: string;
-    input: string;
-    output: string;
-  }[];
+  testCases?: {
+    testName: {
+      input: string;
+      output: string;
+    }[];
+  };
 }
 
 interface PracticeQueryResult extends RowDataPacket {
@@ -29,6 +31,7 @@ interface PracticeQueryResult extends RowDataPacket {
   lessonName: string;
   problemName: string;
 }
+const allowedExtensions = [".md", ".py", ".js", ".java", ".c"]; // TODO: set globally
 
 const findPracticeProblemInDB: (
   problemId: string
@@ -50,6 +53,11 @@ const findPracticeProblemInDB: (
   });
 };
 
+const getObjectFromS3 = async (bucket: string, key: string) => {
+  const data = await s3.getObject({ Bucket: bucket, Key: key }).promise();
+  return data.Body.toString();
+};
+
 export const getPracticeProblems = async (
   req: express.Request,
   res: express.Response
@@ -62,7 +70,6 @@ export const getPracticeProblems = async (
     const queryResult = await findPracticeProblemInDB(problemId as string);
     const basePath = queryResult.map((row: RowDataPacket) => {
       return [
-        "traicode-coursework-bucket",
         row.productName,
         row.courseName,
         row.lessonName,
@@ -70,38 +77,48 @@ export const getPracticeProblems = async (
       ].join("/");
     })[0];
 
-    const directoryPath =
-      process.env.BASE_URL_EC2_PATH ||
-      process.env.BASE_URL_LOCAL_PATH + basePath;
-    const filesPath = getAllFiles(directoryPath);
+    const params = {
+      Bucket: process.env.TRAICODE_PRACTICE_PROBLEM_S3_BUCKET,
+      Prefix: basePath,
+    };
 
-    const promises = filesPath.map(async (file: string) => {
-      const data = (await readFileAsync(file)) as string;
+    const listObject = await s3.listObjectsV2(params).promise();
 
-      const fileName = file.substring(file.lastIndexOf("/") + 1);
+    // Filter out directories
+    const fileKeys = listObject.Contents.map(
+      (object: any) => object.Key
+    ).filter((key: string) => !key.endsWith("/"));
+
+    const promises = fileKeys.map(async (fileKey: string) => {
+      const fileContent = await getObjectFromS3(
+        process.env.TRAICODE_PRACTICE_PROBLEM_S3_BUCKET as string,
+        fileKey
+      );
+      const fileName = fileKey.substring(fileKey.lastIndexOf("/") + 1);
       const isExecuteFile = fileName === queryResult[0].executeFile;
 
       if (fileName === "index.md") {
-        return { content: data };
-      } else if (file.includes("/source-code/")) {
+        return { content: fileContent };
+      } else if (fileKey.includes("/source-code/")) {
         return {
           sourceCode: {
             fileName: fileName,
             language: detectLanguage(fileName),
             executeFile: isExecuteFile,
-            code: data,
+            code: fileContent,
           },
         };
-      } else if (file.includes("/solution/")) {
+      } else if (fileKey.includes("/solution/")) {
         return {
           solution: {
             fileName: fileName,
             language: detectLanguage(fileName),
-            code: data,
+            executeFile: isExecuteFile,
+            code: fileContent,
           },
         };
-      } else if (file.includes("/test-cases/") && fileName === "data.json") {
-        return { testCases: JSON.parse(data) };
+      } else if (fileKey.includes("/test-cases/") && fileName === "data.json") {
+        return { testCases: JSON.parse(fileContent) };
       }
     });
 
@@ -111,28 +128,30 @@ export const getPracticeProblems = async (
         content: "",
         sourceCode: [],
         solution: [],
-        testCases: [],
+        testCases: {
+          testName: [],
+        },
       };
       obj.forEach((value) => {
         if (!value) return;
-
-        const { content, sourceCode, solution, testCases } = value;
-
-        if (content !== undefined) {
-          practiceProblem.content = content;
-        } else if (sourceCode !== undefined) {
-          practiceProblem.sourceCode.push(sourceCode);
-        } else if (solution !== undefined) {
-          practiceProblem.solution.push(solution);
-        } else if (testCases !== undefined) {
-          practiceProblem.testCases = testCases;
+        if (value.hasOwnProperty("content")) {
+          practiceProblem.content = value.content;
+        } else if (value.hasOwnProperty("sourceCode")) {
+          practiceProblem?.sourceCode?.push(value["sourceCode"]);
+        } else if (value.hasOwnProperty("solution")) {
+          practiceProblem?.solution?.push(value["solution"]);
+        } else if (value.hasOwnProperty("testCases")) {
+          practiceProblem.testCases = value["testCases"];
         }
       });
-
+      // const res = practiceProblem.sourceCode?.reduce((acc: any, cur: any) => {
+      //   acc[cur.fileName] = cur;
+      //   return acc;
+      // }, []);
       return practiceProblem;
     });
+
     return res.status(200).json(results);
-    // return res.status(200).json({ message: "Success" });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }
