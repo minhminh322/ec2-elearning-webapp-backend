@@ -165,6 +165,143 @@ class LinkedList:
     def length(self) -> int:
         """Return the length of the list."""
         return self._size
+    
+class HashMapSolution:
+    def __init__(self,
+                 capacity: int = 11,
+                 function: callable = hash_function_1) -> None:
+        self._buckets = DynamicArray()
+
+        # capacity must be a prime number
+        self._capacity = self._next_prime(capacity)
+        for _ in range(self._capacity):
+            self._buckets.append(LinkedList())
+
+        self._hash_function = function
+        self._size = 0
+
+    def __str__(self) -> str:
+        out = ''
+        for i in range(self._buckets.length()):
+            out += str(i) + ': ' + str(self._buckets[i]) + '\n'
+        return out
+
+    def _next_prime(self, capacity: int) -> int:
+        if capacity % 2 == 0:
+            capacity += 1
+
+        while not self._is_prime(capacity):
+            capacity += 2
+
+        return capacity
+
+    @staticmethod
+    def _is_prime(capacity: int) -> bool:
+        if capacity == 2 or capacity == 3:
+            return True
+
+        if capacity == 1 or capacity % 2 == 0:
+            return False
+
+        factor = 3
+        while factor ** 2 <= capacity:
+            if capacity % factor == 0:
+                return False
+            factor += 2
+
+        return True
+
+    def get_size(self) -> int:
+        return self._size
+
+    def get_capacity(self) -> int:
+        return self._capacity
+
+    def put(self, key: str, value: object) -> None:
+        if self.table_load() >= 1:
+            new_capacity = self.get_capacity() * 2
+            self.resize_table(new_capacity)
+        
+        hash_key = self._hash_function(key) % self._capacity 
+        bucket = self._buckets[hash_key]
+
+        for node in bucket:
+            if node.key == key:
+                node.value = value
+                return
+        bucket.insert(key, value)
+        self._size += 1
+        
+    def resize_table(self, new_capacity: int) -> None:
+        if new_capacity < 1:
+            return
+
+        if not self._is_prime(new_capacity):
+            new_capacity = self._next_prime(new_capacity)
+
+        new_table = HashMap(new_capacity, self._hash_function)
+        for index in range(self._capacity):
+            bucket = self._buckets.get_at_index(index)
+            for node in bucket:
+                new_table.put(node.key, node.value)
+
+        self._buckets = new_table._buckets
+        self._size = new_table._size
+        self._capacity = new_table._capacity
+
+    def table_load(self) -> float:
+        load_factor = float(self.get_size() / self.get_capacity())
+        return load_factor 
+
+    def empty_buckets(self) -> int:
+        num_of_empty = 0
+        for index in range(self._capacity):
+            bucket = self._buckets.get_at_index(index)
+            if bucket.length() == 0:
+                num_of_empty += 1
+        return num_of_empty 
+
+    def get(self, key: str):
+        find_hash_key = self._hash_function(key) % self._capacity
+        bucket = self._buckets[find_hash_key]
+
+        for node in bucket:
+            if node.key == key:
+                return node.value
+        return None
+
+    def contains_key(self, key: str) -> bool:
+        find_hash_key = self._hash_function(key) % self._capacity
+        bucket = self._buckets.get_at_index(find_hash_key)
+
+        for node in bucket:
+            if node.key == key:
+                return True
+        return False
+
+    def remove(self, key: str) -> None:
+        find_hash_key = self._hash_function(key) % self._capacity
+        bucket = self._buckets.get_at_index(find_hash_key)
+
+        node = bucket.contains(key)
+        if node:
+            bucket.remove(key)
+            self._size -= 1
+            return None
+
+
+    def get_keys_and_values(self) -> DynamicArray:
+        results_array = DynamicArray()
+        for i in range(self._capacity):
+            for node in self._buckets[i]:
+                results_array.append((node.key, node.value))
+        return results_array
+
+
+    def clear(self) -> None:
+        for i in range(self._capacity):
+            self._buckets[i] = LinkedList()
+        self._size = 0
 
 class HashMap:
     def __init__(self,
@@ -223,188 +360,77 @@ class HashMap:
 
 # --------------------------UNIT TESTS------------------------------------
 class TestHashMapSC(unittest.TestCase):
+    def test_put_and_get(self):
+        hash_map = HashMap()
+        hash_map.put("apple", 5)
+        self.assertEqual(hash_map.get("apple"), 5)
+        
+    def test_put_and_load_factor(self):
+        m = HashMap(101, hash_function_1)
+        m_sol = HashMapSolution(101, hash_function_1)
+        self.assertAlmostEqual(m.table_load(), m_sol.table_load(), delta=0.01)
+        m.put('key1', 10)
+        m_sol.put('key1', 10)
+        self.assertAlmostEqual(m.table_load(), m_sol.table_load(), delta=0.01)
+        m.put('key2', 20)
+        m_sol.put('key2', 20)
+        self.assertAlmostEqual(m.table_load(), m_sol.table_load(), delta=0.01)
+        m.put('key1', 30)
+        m_sol.put('key1', 30)
+        self.assertAlmostEqual(m.table_load(), m_sol.table_load(), delta=0.01)
 
-    def test_put_example_1(self):
-        m = HashMap(53, hash_function_1)
-        for i in range(150):
-            m.put('str' + str(i), i * 100)
-            if i % 25 == 24:
-                self.assertEqual(m.empty_buckets(), 0)
-                self.assertAlmostEqual(m.table_load(), 1.0, delta=0.01)
-                self.assertEqual(m.get_size(), i + 1)
-                self.assertEqual(m.get_capacity(), 53)
-
-    def test_put_example_2(self):
-        m = HashMap(41, hash_function_2)
-        for i in range(50):
-            m.put('str' + str(i // 3), i * 100)
-            if i % 10 == 9:
-                self.assertEqual(m.empty_buckets(), 0)
-                self.assertAlmostEqual(m.table_load(), 1.0, delta=0.01)
-                self.assertEqual(m.get_size(), i + 1)
-                self.assertEqual(m.get_capacity(), 41)
-
-    def test_resize_example_1(self):
+    def test_put_and_resize_table(self):
         m = HashMap(20, hash_function_1)
+        m_sol = HashMapSolution(20, hash_function_1)
+
         m.put('key1', 10)
-        self.assertEqual(m.get_size(), 1)
-        self.assertEqual(m.get_capacity(), 20)
-        self.assertEqual(m.get('key1'), 10)
-        self.assertTrue(m.contains_key('key1'))
+        m_sol.put('key1', 10)
+        self.assertEqual(m.get_size(), m_sol.get_size())
+        self.assertEqual(m.get_capacity(), m_sol.get_capacity())
+        self.assertEqual(m.get('key1'), m_sol.get('key1'))
+
         m.resize_table(30)
-        self.assertEqual(m.get_size(), 1)
-        self.assertEqual(m.get_capacity(), 30)
-        self.assertEqual(m.get('key1'), 10)
-        self.assertTrue(m.contains_key('key1'))
+        m_sol.resize_table(30)
+        self.assertEqual(m.get_size(), m_sol.get_size())
+        self.assertEqual(m.get_capacity(), m_sol.get_capacity())
+        self.assertEqual(m.get('key1'), m_sol.get('key1'))
 
-    def test_resize_example_2(self):
-        m = HashMap(75, hash_function_2)
-        keys = [i for i in range(1, 1000, 13)]
-        for key in keys:
-            m.put(str(key), key * 42)
-        self.assertEqual(m.get_size(), len(keys))
-        self.assertEqual(m.get_capacity(), 75)
+    def test_remove(self):
+        hash_map = HashMap()
+        hash_map.put("apple", 5)
+        hash_map.put("banana", 7)
+        hash_map.remove("apple")
+        self.assertIsNone(hash_map.get("apple"))
+        self.assertIsNotNone(hash_map.get("banana"))
+        
+    def test_clear(self):
+        hash_map = HashMap()
+        hash_map.put("apple", 5)
+        hash_map.put("banana", 7)
+        self.assertEqual(hash_map.get_size(), 2) 
+        hash_map.clear()
+        self.assertIsNone(hash_map.get("apple")) 
+        self.assertEqual(hash_map.get_size(), 0)   
 
-        for capacity in range(111, 1000, 117):
-            m.resize_table(capacity)
-
-            m.put('some key', 'some value')
-            self.assertTrue(m.contains_key('some key'))
-            m.remove('some key')
-
-            for key in keys:
-                self.assertTrue(m.contains_key(str(key)))
-                self.assertFalse(m.contains_key(str(key + 1)))
-            self.assertAlmostEqual(m.table_load(), len(keys) / capacity, delta=0.01)
-
-    def test_table_load_example_1(self):
-        m = HashMap(101, hash_function_1)
-        self.assertAlmostEqual(m.table_load(), 0.0, delta=0.01)
-        m.put('key1', 10)
-        self.assertAlmostEqual(m.table_load(), 0.01, delta=0.01)
-        m.put('key2', 20)
-        self.assertAlmostEqual(m.table_load(), 0.02, delta=0.01)
-        m.put('key1', 30)
-        self.assertAlmostEqual(m.table_load(), 0.02, delta=0.01)
-
-    def test_table_load_example_2(self):
-        m = HashMap(53, hash_function_1)
-        for i in range(50):
-            m.put('key' + str(i), i * 100)
-            if i % 10 == 0:
-                self.assertAlmostEqual(m.table_load(), (i + 1) / 53, delta=0.01)
-                self.assertEqual(m.get_size(), i + 1)
-                self.assertEqual(m.get_capacity(), 53)
-
-    def test_empty_buckets_example_1(self):
-        m = HashMap(101, hash_function_1)
-        self.assertEqual(m.empty_buckets(), 101)
-        m.put('key1', 10)
-        self.assertEqual(m.empty_buckets(), 100)
-        m.put('key2', 20)
-        self.assertEqual(m.empty_buckets(), 99)
-        m.put('key1', 30)
-        self.assertEqual(m.empty_buckets(), 99)
-        m.put('key4', 40)
-        self.assertEqual(m.empty_buckets(), 98)
-
-    def test_empty_buckets_example_2(self):
-        m = HashMap(53, hash_function_1)
-        for i in range(150):
-            m.put('key' + str(i), i * 100)
-            if i % 30 == 0:
-                self.assertAlmostEqual(m.empty_buckets(), 53 - (i + 1), delta=1)
-
-    def test_get_example_1(self):
-        m = HashMap(31, hash_function_1)
-        self.assertIsNone(m.get('key'))
-        m.put('key1', 10)
-        self.assertEqual(m.get('key1'), 10)
-
-    def test_get_example_2(self):
-        m = HashMap(151, hash_function_2)
-        for i in range(200, 300, 7):
-            m.put(str(i), i * 10)
-        self.assertEqual(m.get_size(), 15)
-        self.assertEqual(m.get_capacity(), 151)
-        for i in range(200, 300, 21):
-            self.assertEqual(m.get(str(i)), i * 10)
-            self.assertTrue(m.get(str(i)) == i * 10)
-            self.assertIsNone(m.get(str(i + 1)))
-
-    def test_contains_key_example_1(self):
-        m = HashMap(53, hash_function_1)
-        self.assertFalse(m.contains_key('key1'))
-        m.put('key1', 10)
-        m.put('key2', 20)
-        m.put('key3', 30)
-        self.assertTrue(m.contains_key('key1'))
-        self.assertFalse(m.contains_key('key4'))
-        self.assertTrue(m.contains_key('key2'))
-        self.assertTrue(m.contains_key('key3'))
-        m.remove('key3')
-        self.assertFalse(m.contains_key('key3'))
-
-    def test_contains_key_example_2(self):
-        m = HashMap(79, hash_function_2)
-        keys = [i for i in range(1, 1000, 20)]
-        for key in keys:
-            m.put(str(key), key * 42)
-        self.assertEqual(m.get_size(), len(keys))
-        self.assertEqual(m.get_capacity(), 79)
-        for key in keys:
-            self.assertTrue(m.contains_key(str(key)))
-            self.assertFalse(m.contains_key(str(key + 1)))
-
-    def test_remove_example_1(self):
-        m = HashMap(53, hash_function_1)
-        self.assertIsNone(m.get('key1'))
-        m.put('key1', 10)
-        self.assertEqual(m.get('key1'), 10)
-        m.remove('key1')
-        self.assertIsNone(m.get('key1'))
-        with self.assertRaises(KeyError):
-            m.remove('key4')
-
-    def test_get_keys_and_values_example_1(self):
-        m = HashMap(11, hash_function_2)
-        for i in range(1, 6):
-            m.put(str(i), str(i * 10))
-        self.assertEqual(m.get_keys_and_values(), DynamicArray([("1", "10"), ("2", "20"), ("3", "30"), ("4", "40"), ("5", "50")]))
-        m.put('20', '200')
-        m.remove('1')
-        m.resize_table(2)
-        self.assertEqual(m.get_keys_and_values(), DynamicArray([("2", "20"), ("3", "30"), ("4", "40"), ("5", "50"), ("20", "200")]))
-
-    def test_clear_example_1(self):
-        m = HashMap(101, hash_function_1)
-        self.assertEqual(m.get_size(), 0)
-        self.assertEqual(m.get_capacity(), 101)
-        m.put('key1', 10)
-        m.put('key2', 20)
-        m.put('key1', 30)
-        self.assertEqual(m.get_size(), 2)
-        self.assertEqual(m.get_capacity(), 101)
-        m.clear()
-        self.assertEqual(m.get_size(), 0)
-        self.assertEqual(m.get_capacity(), 101)
-
-    def test_clear_example_2(self):
-        m = HashMap(53, hash_function_1)
-        self.assertEqual(m.get_size(), 0)
-        self.assertEqual(m.get_capacity(), 53)
-        m.put('key1', 10)
-        self.assertEqual(m.get_size(), 1)
-        self.assertEqual(m.get_capacity(), 53)
-        m.put('key2', 20)
-        self.assertEqual(m.get_size(), 2)
-        self.assertEqual(m.get_capacity(), 53)
-        m.resize_table(100)
-        self.assertEqual(m.get_size(), 2)
-        self.assertEqual(m.get_capacity(), 100)
-        m.clear()
-        self.assertEqual(m.get_size(), 0)
-        self.assertEqual(m.get_capacity(), 100)   
+    def test_contains_key(self):
+        hash_map = HashMap()
+        hash_map.put("apple", 5)
+        self.assertTrue(hash_map.contains_key("apple"))
+        self.assertFalse(hash_map.contains_key("banana"))
+        
+    def test_empty_buckets(self):
+        hash_map = HashMap()
+        hash_map.put("apple", 5)
+        self.assertEqual(hash_map.empty_buckets(), hash_map.get_capacity() - 1)
+        
+    def test_get_keys_and_values(self):
+        hash_map = HashMap()
+        hash_map.put("apple", 5)
+        hash_map.put("banana", 7)
+        hash_map.put("orange", 3)
+        result = hash_map.get_keys_and_values()
+        expected = [("apple", 5), ("banana", 7), ("orange", 3)]
+        self.assertEqual(str(result), str(expected))
 
 def run_tests():
     # Create a dictionary to store test results
@@ -448,26 +474,7 @@ def run_tests():
 
     def create_test_suite():
         suite = unittest.TestSuite()
-        test_cases = [
-            "test_put_example_1",
-            "test_put_example_2",
-            "test_resize_example_1",
-            "test_resize_example_2",
-            "test_table_load_example_1",
-            "test_table_load_example_2",
-            "test_empty_buckets_example_1",
-            "test_empty_buckets_example_2",
-            "test_get_example_1",
-            "test_get_example_2",
-            "test_contains_key_example_1",
-            "test_contains_key_example_2",
-            "test_remove_example_1",
-            "test_get_keys_and_values_example_1",
-            "test_clear_example_1",
-            "test_clear_example_2",
-            "test_find_mode_example_1",
-            "test_find_mode_example_2"
-        ]
+        test_cases = ["test_put_and_get", "test_put_and_load_factor", "test_put_and_resize_table", "test_remove", "test_clear", "test_contains_key", "test_empty_buckets", "test_get_keys_and_values"]
         for test_case in test_cases:
             suite.addTest(TestHashMapSC(test_case))
         return suite

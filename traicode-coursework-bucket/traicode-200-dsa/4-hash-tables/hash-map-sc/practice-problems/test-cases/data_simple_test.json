@@ -1,0 +1,90 @@
+[
+  {
+    "testName": "test_put_and_get",
+    "input": ["HashTable", [], "put", "apple", 5, "get", "apple"],
+    "expectedOutput": 5
+  },
+  {
+    "testName": "test_put_and_load_factor",
+    "input": [
+      "HashTable",
+      [101, "hash_function_1"],
+      "put",
+      "key1",
+      10,
+      "put",
+      "key2",
+      20,
+      "put",
+      "key1",
+      30
+    ],
+    "expectedOutput": 0.5
+  },
+  {
+    "testName": "test_put_and_resize_table",
+    "input": [
+      "HashTable",
+      [20, "hash_function_1"],
+      "put",
+      "key1",
+      10,
+      "resize_table",
+      30
+    ],
+    "expectedOutput": 30
+  },
+  {
+    "testName": "test_remove",
+    "input": [
+      "HashTable",
+      [],
+      "put",
+      "apple",
+      5,
+      "put",
+      "banana",
+      7,
+      "remove",
+      "apple"
+    ],
+    "expectedOutput": "None"
+  },
+  {
+    "testName": "test_clear",
+    "input": ["HashTable", [], "put", "apple", 5, "put", "banana", 7, "clear"],
+    "expectedOutput": "None"
+  },
+  {
+    "testName": "test_contains_key",
+    "input": ["HashTable", [], "put", "apple", 5, "contains_key", "apple"],
+    "expectedOutput": true
+  },
+  {
+    "testName": "test_empty_buckets",
+    "input": ["HashTable", [], "put", "apple", 5, "empty_buckets"],
+    "expectedOutput": 0
+  },
+  {
+    "testName": "test_get_keys_and_values",
+    "input": [
+      "HashTable",
+      [],
+      "put",
+      "apple",
+      5,
+      "put",
+      "banana",
+      7,
+      "put",
+      "orange",
+      3,
+      "get_keys_and_values"
+    ],
+    "expectedOutput": [
+      ["apple", 5],
+      ["banana", 7],
+      ["orange", 3]
+    ]
+  }
+]
