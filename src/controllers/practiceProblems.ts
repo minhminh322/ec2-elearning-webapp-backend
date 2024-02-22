@@ -16,7 +16,12 @@ interface PracticeProblem {
     language: string;
     code: string;
   }[];
-  testCases: {
+  testCaseSimple: {
+    testName: string;
+    input: string;
+    output: string;
+  }[];
+  testCaseFull: {
     testName: string;
     input: string;
     output: string;
@@ -81,7 +86,7 @@ export const getPracticeProblems = async (
       const fileName = file.substring(file.lastIndexOf("/") + 1);
       const isExecuteFile = fileName === queryResult[0].executeFile;
 
-      if (fileName === "index.md") {
+      if (file.includes("/content/") && fileName === "index.md") {
         return { content: data };
       } else if (file.includes("/source-code/")) {
         return {
@@ -100,8 +105,16 @@ export const getPracticeProblems = async (
             code: data,
           },
         };
-      } else if (file.includes("/test-cases/") && fileName === "data.json") {
-        return { testCases: JSON.parse(data) };
+      } else if (
+        file.includes("/test-cases/") &&
+        fileName === "data_simple_test.json"
+      ) {
+        return { testCaseSimple: JSON.parse(data) };
+      } else if (
+        file.includes("/test-cases/") &&
+        fileName === "data_full_test.json"
+      ) {
+        return { testCaseFull: JSON.parse(data) };
       }
     });
 
@@ -111,12 +124,14 @@ export const getPracticeProblems = async (
         content: "",
         sourceCode: [],
         solution: [],
-        testCases: [],
+        testCaseSimple: [],
+        testCaseFull: [],
       };
       obj.forEach((value) => {
         if (!value) return;
 
-        const { content, sourceCode, solution, testCases } = value;
+        const { content, sourceCode, solution, testCaseSimple, testCaseFull } =
+          value;
 
         if (content !== undefined) {
           practiceProblem.content = content;
@@ -124,8 +139,10 @@ export const getPracticeProblems = async (
           practiceProblem.sourceCode.push(sourceCode);
         } else if (solution !== undefined) {
           practiceProblem.solution.push(solution);
-        } else if (testCases !== undefined) {
-          practiceProblem.testCases = testCases;
+        } else if (testCaseSimple !== undefined) {
+          practiceProblem.testCaseSimple = testCaseSimple;
+        } else if (testCaseFull !== undefined) {
+          practiceProblem.testCaseFull = testCaseFull;
         }
       });
 

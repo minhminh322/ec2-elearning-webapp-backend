@@ -44,9 +44,9 @@ const prepareSubmission = async (directoryPath: string, sourceCode: string) => {
 
     const fileName = file.substring(file.lastIndexOf("/") + 1);
 
-    if (fileName === "data_full_test.json") {
+    if (fileName === "data_simple_test.json") {
       return { testCases: JSON.parse(data) };
-    } else if (fileName === "template_full_test.py") {
+    } else if (fileName === "template_simple_test.py") {
       const [_, toBeSubmitted] = sourceCode.split(
         "#------------------------***YOUR IMPLEMENTATION***------------------------#"
       );
@@ -121,7 +121,7 @@ async function checkSubmissionStatus(token: string) {
   }
 }
 
-export const createSubmissions = async (
+export const createSimpleTest = async (
   req: express.Request,
   res: express.Response
 ) => {
@@ -153,7 +153,7 @@ export const createSubmissions = async (
     const token = await executeTasks(task);
     // console.log("Token:", token);
     const submisson = await checkSubmissionStatus(token);
-    console.log("Submission:", submisson);
+    console.log("Simple Test Submission:", submisson);
 
     const statusIndicator = submisson["stdout"].split("\n")[0];
     let status;
@@ -164,19 +164,6 @@ export const createSubmissions = async (
     } else {
       status = "Accepted";
     }
-
-    storeSubmission({
-      userId: userId,
-      problemId: problemId,
-      tokenId: token,
-      sourceCode: sourceCode,
-      language: languageId,
-      status: status,
-      timeExecuted: submisson["time"],
-      memoryUsed: submisson["memory"],
-    }).then(() => {
-      console.log("Submission has been saved!");
-    });
 
     const [output, reportResult] = submisson["stdout"].split(
       "****TEST_REPORT****"
@@ -192,13 +179,6 @@ export const createSubmissions = async (
       token: submisson["token"],
       status: status,
     };
-
-    // const encodedSourceCode = Buffer.from(result["sourceCode"]).toString(
-    //   "base64"
-    // );
-
-    // const encodedResult = Buffer.from(result["output"]).toString("base64");
-
     return res.status(200).json(result);
 
     // return res.status(200).json({ message: "Submission created" });

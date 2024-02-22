@@ -1,54 +1,64 @@
 class DynamicArray:
-    def __init__(self, start_array=None):
-        """
-        Initialize new dynamic array
-        DO NOT CHANGE THIS METHOD IN ANY WAY
-        """
-        self._size = 0
-        self._capacity = 4
-        self._data = StaticArray(self._capacity) # From static_array.py
+    """
+    Class implementing a Dynamic Array
+    Supported methods are:
+    append, pop, swap, get_at_index, set_at_index, length
+    """
 
-    def is_empty(self) -> bool:
-        """
-        Return True is array is empty / False otherwise
-        """
-        return self._size == 0
+    def __init__(self, arr=None) -> None:
+        """Initialize new dynamic array using a list."""
+        self._data = arr.copy() if arr else []
 
-    def length(self) -> int:
+    def __iter__(self):
         """
-        Return number of elements stored in array
-        """
-        return self._size
+        Disable iterator capability for DynamicArray class
+        This means loops and aggregate functions like
+        those shown below won't work:
 
-    def get_capacity(self) -> int:
+        da = DynamicArray()
+        for value in da:        # will not work
+        min(da)                 # will not work
+        max(da)                 # will not work
+        sort(da)                # will not work
         """
-        Return the capacity of the array
-        """
-        return self._capacity
+        return None
 
-#------------------------***YOUR IMPLEMENTATION***------------------------#
-
-    def resize(self, new_capacity: int) -> None:
-        """
-        TODO: Write this implementation
-        """
-        pass
+    def __str__(self) -> str:
+        """Override string method to provide more readable output."""
+        return str(self._data)
 
     def append(self, value: object) -> None:
-        """
-        TODO: Write this implementation
-        """
-        pass
+        """Add new element at the end of the array."""
+        self._data.append(value)
 
-    def insert_at_index(self, index: int, value: object) -> None:
-        """
-        TODO: Write this implementation
-        """
-        pass
+    def pop(self):
+        """Remove element from end of the array and return it."""
+        return self._data.pop()
 
-    def remove_at_index(self, index: int) -> None:
-        """
-        TODO: Write this implementation
-        """
-        pass
+    def swap(self, i: int, j: int) -> None:
+        """Swap two elements in array given their indices."""
+        self._data[i], self._data[j] = self._data[j], self._data[i]
 
+    def get_at_index(self, index: int):
+        """Return value of element at a given index."""
+        if index < 0 or index >= self.length():
+            raise DynamicArrayException
+        return self._data[index]
+
+    def __getitem__(self, index: int):
+        """Return value of element at a given index using [] syntax."""
+        return self.get_at_index(index)
+
+    def set_at_index(self, index: int, value: object) -> None:
+        """Set value of element at a given index."""
+        if index < 0 or index >= self.length():
+            raise DynamicArrayException
+        self._data[index] = value
+
+    def __setitem__(self, index: int, value: object) -> None:
+        """Set value of element at a given index using [] syntax."""
+        self.set_at_index(index, value)
+
+    def length(self) -> int:
+        """Return length of array."""
+        return len(self._data)
